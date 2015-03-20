@@ -1,4 +1,4 @@
-package fuzz;
+package curatorplay.zk;
 
 import org.apache.curator.test.TestingServer;
 
