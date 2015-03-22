@@ -26,3 +26,5 @@ Manual tests passed
 1. 2 servers, 2 clients. Both clients start to receive data from their respective session leader
 2. Gracefully shutting down a server, transfers ownership of the session to the other server. Respective clients reconnect and continue to receive data.
 3. Crashing a server, transfers ownership of the session to the other server, after ZK timeout (30s). Respective clients reconnect and continue to receive data.
+4. Gracefully shutting down a client, removes the session. As a result the responsible leader relinquishes responsibility for the session.
+4. Crashing a client, removes the session after the ZK timeout (30s). As a result the responsible leader relinquishes responsibility for the session.
