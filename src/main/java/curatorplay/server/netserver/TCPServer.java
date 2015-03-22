@@ -1,12 +1,15 @@
 package curatorplay.server.netserver;
 
+import curatorplay.common.SessionLeaderDetails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vertx.java.core.Vertx;
 import org.vertx.java.core.VertxFactory;
-import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.net.NetServer;
 import org.vertx.java.core.net.NetSocket;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class TCPServer implements AutoCloseable {
   private static Logger logger = LoggerFactory.getLogger(TCPServer.class);
@@ -17,7 +20,9 @@ public class TCPServer implements AutoCloseable {
    * Returns the connection data as session data - too leaky?
    * @return
    */
-  public byte[] start() {
+  public SessionLeaderDetails start() {
+    AtomicReference<SessionLeaderDetails> ref = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(1);
     this.vertx = VertxFactory.newVertx();
     this.server = vertx.createNetServer()
       .connectHandler(ns -> {
@@ -28,9 +33,12 @@ public class TCPServer implements AutoCloseable {
         });
         ns.dataHandler(buffer -> logger.info("received from " + ns.remoteAddress() + ": " + buffer.getString(0, buffer.length())));
       })
-    .listen(0, "localhost");
-    logger.info("started on " + server.host() + ":" + server.port());
-    return new JsonObject().putString("host", server.host()).putNumber("port", server.port()).encode().getBytes();
+    .listen(0, "localhost", ar -> {
+      logger.info("started on " + server.host() + ":" + server.port());
+      ref.set(new SessionLeaderDetails(server.host(), server.port()));
+    });
+    while (ref.get() == null); // BAD - but quick
+    return ref.get();
   }
 
   private void sendData(NetSocket ns) {

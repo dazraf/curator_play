@@ -1,7 +1,11 @@
 package curatorplay.server.session;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import curatorplay.common.SessionLeaderDetails;
 import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.retry.RetryOneTime;
 import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +25,7 @@ import static org.apache.curator.framework.imps.CuratorFrameworkState.STARTED;
  */
 public class SessionOwners implements Closeable {
   private static final Logger logger = LoggerFactory.getLogger(SessionOwners.class);
+  private static final ObjectMapper mapper = new ObjectMapper();
   public static final String SESSIONS_ROOT = "/sessions";
 
   private final ConcurrentHashMap<String, SessionOwner> owners = new ConcurrentHashMap<>();
@@ -30,15 +35,12 @@ public class SessionOwners implements Closeable {
   private ReadWriteLock lock = new ReentrantReadWriteLock();
   private final PathChildrenCache cache;
 
-  /**
-   * Sets up everything given the curator.
-   * Please note: curatorFramework must be started
-   * @param curatorFramework the curator instance - must be in a started state
-   * @throws Exception
-   */
-  public SessionOwners(CuratorFramework curatorFramework, byte[] leaderData) throws Exception {
-    this.curator = curatorFramework;
-    this.leaderData = leaderData;
+  public SessionOwners(String connectionString, SessionLeaderDetails leaderDetails) throws Exception {
+    curator = CuratorFrameworkFactory.newClient(connectionString, new RetryOneTime(2000));
+    curator.start();
+
+    logger.info("leader details {}", leaderDetails);
+    this.leaderData = mapper.writeValueAsBytes(leaderDetails);
     if (curator.getState() != STARTED)
       throw new Exception ("curator must be started");
 
@@ -133,11 +135,11 @@ public class SessionOwners implements Closeable {
       }
     });
     owners.clear();
+    curator.close();
   }
 
   private void checkNotClosed() throws SessionOwnersClosed {
     if (closed)
       throw new SessionOwnersClosed();
   }
-
 }

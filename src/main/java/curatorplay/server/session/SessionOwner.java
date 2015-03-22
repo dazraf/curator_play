@@ -1,5 +1,7 @@
 package curatorplay.server.session;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import curatorplay.common.SessionLeaderDetails;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.leader.LeaderSelector;
 import org.apache.curator.framework.recipes.leader.LeaderSelectorListenerAdapter;
@@ -34,6 +36,7 @@ public class SessionOwner extends LeaderSelectorListenerAdapter implements AutoC
     logger.info("taking ownership for " + path);
     try {
       try {
+        logger.info("sending: {}", new ObjectMapper().readValue(leaderData, SessionLeaderDetails.class));
         client.setData().forPath(path, leaderData);
       } catch (Exception e) {
         // this is pretty serious - if we can't set the
@@ -49,10 +52,8 @@ public class SessionOwner extends LeaderSelectorListenerAdapter implements AutoC
   public void close() throws Exception {
     logger.info("closing for " + path);
     releaseOwnership.countDown();
-    try {
-      curator.setData().forPath(path, null);
-    } finally {
-      leaderSelector.close();
-    }
+    // we don't do this because this code is getting called as a result of a node remove event
+    // curator.setData().forPath(path, null);
+    leaderSelector.close();
   }
 }
